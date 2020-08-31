@@ -15,12 +15,13 @@ interface CSVLine {
   category_title: string;
 }
 
+interface Request {
+  filename: string;
+}
+
 class ImportTransactionsService {
-  async execute(): Promise<Transaction[]> {
-    const csvFilePath = path.resolve(
-      csvUploadConfig.directory,
-      'import_template.csv',
-    );
+  async execute({ filename }: Request): Promise<Transaction[]> {
+    const csvFilePath = path.resolve(csvUploadConfig.directory, filename);
 
     const readCSVStream = fs.createReadStream(csvFilePath);
 
@@ -68,9 +69,11 @@ class ImportTransactionsService {
     // eslint-disable-next-line no-restricted-syntax
     for (const title of uniqueCategories) {
       // eslint-disable-next-line no-await-in-loop
-      const { id } = await categoriesRepository.findOrinsertIfNotExists(title);
+      const category = await categoriesRepository.findOrinsertIfNotExists(
+        title,
+      );
 
-      categoriesIds.set(title, id);
+      categoriesIds.set(title, category);
     }
 
     const transactions = parsedLines.map(line => {
@@ -87,6 +90,8 @@ class ImportTransactionsService {
     });
 
     await transactionsRepository.insert(transactions);
+
+    fs.promises.unlink(csvFilePath);
 
     return transactions;
   }
